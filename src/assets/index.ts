@@ -1,0 +1,12 @@
+export { default as DocumentsDarkImage } from './documents-dark.png';
+export { default as DocumentsImage } from './documents.png';
+export { default as EmptyDarkImage } from './empty-dark.png';
+export { default as EmptyImage } from './empty.png';
+export { default as ErrorImage } from './error.png';
+export { default as ErrorDarkImage } from './error-dark.png';
+export { default as LogoDarkImage } from './logo-dark.svg';
+export { default as LogoImage } from './logo.svg';
+export { default as ReadingImage } from './reading.png';
+export { default as ReadingDarkImage } from './reading-dark.png';
+export { default as AvatarImage } from './avatar.jpg';
+export { default as ProjectImage } from './board_icon.png';
