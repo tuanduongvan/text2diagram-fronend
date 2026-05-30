@@ -11,7 +11,7 @@ export const getProjects = async (
 ): Promise<PaginatedResponse<Project>> => {
   const { page, pageSize } = payload;
   const data = await axiosBackendInstance.get(
-    `/Projects?page=${page}&pageSize=${pageSize}`
+    `/projects?page=${page}&pageSize=${pageSize}`
   );
   return data.data;
 };

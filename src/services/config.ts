@@ -29,6 +29,10 @@ axiosBackendInstance.interceptors.request.use(
     const token = await auth.currentUser?.getIdToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+      // Temporary for Python backend development:
+      config.headers['x-user-id'] = auth.currentUser?.uid || 'test-user-id';
+    } else {
+      config.headers['x-user-id'] = 'test-user-id';
     }
 
     return config;

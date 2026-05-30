@@ -4,4 +4,4 @@ export * from './sleep';
 export * from './mappingAppThemeToExcalidrawTheme';
 export * from './buildPatchData';
 export * from './const';
-export * from './signalRConnection';
+export * from './webSocketService';

@@ -31,7 +31,7 @@ import {
   customDisplayDiagramType,
   handleError,
   CustomError,
-  signalRConnection
+  webSocketService
 } from '@/utils';
 import { promptingSchema, PromptingSchemaType } from '@/validations';
 import { cn } from '@/lib/utils';
@@ -43,7 +43,6 @@ import {
   convertToExcalidrawElements,
   exportToCanvas
 } from '@excalidraw/excalidraw';
-import { generateDiagram } from '@/services/api';
 import {
   Form,
   FormControl,
@@ -157,20 +156,26 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
     try {
       const refNode = canvasRef.current;
       if (!refNode) return;
-      const mapper = {
-        type: 'diagramType',
-        content: 'textInput',
-        file: 'fileInput'
-      };
-      const formData = Object.keys(payload).reduce((formData, key) => {
-        const k = key as keyof PromptingSchemaType;
-        if (payload[k] && mapper[k]) {
-          formData.append(mapper[k], payload[k]);
-        }
-        return formData;
-      }, new FormData());
-      await signalRConnection.start();
-      const { diagramJson, mermaidCode } = await generateDiagram(formData);
+
+      await webSocketService.start();
+
+      // Listen for completion
+      const completionPromise = new Promise<{
+        mermaidCode: string;
+        diagramJson: string;
+      }>((resolve, reject) => {
+        webSocketService.on('Complete', (data) => resolve(data));
+        webSocketService.on('Error', (message) => reject(new Error(message)));
+      });
+
+      // Send generation request via WebSocket
+      webSocketService.send('generate', {
+        diagram_type: payload.type,
+        text_input: payload.content
+      });
+
+      const { diagramJson, mermaidCode } = await completionPromise;
+
       if (mermaidCode && diagramJson) {
         setGeneratedData({ diagramJson, mermaidCode });
         setIsParsing(true);
@@ -200,7 +205,7 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
       handleError({ message: String(error), code: 500 } as CustomError);
     } finally {
       setIsParsing(false);
-      await signalRConnection.stop();
+      webSocketService.stop();
     }
   };
   const handleInsertToEditor = () => {
@@ -244,12 +249,14 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
   }, [open, form]);
 
   useEffect(() => {
-    signalRConnection.on('StepGenerated', (message: string) => {
+    webSocketService.on('StepGenerated', (message: string) => {
       setNewEvent(message);
       console.log('Data received: ', message);
     });
     return () => {
-      signalRConnection.off('StepGenerated');
+      webSocketService.off('StepGenerated');
+      webSocketService.off('Complete');
+      webSocketService.off('Error');
     };
   }, []);
 
