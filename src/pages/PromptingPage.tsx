@@ -29,7 +29,7 @@ import {
   customDisplayDiagramType,
   CustomError,
   handleError,
-  signalRConnection
+  webSocketService
 } from '@/utils';
 import { promptingSchema, PromptingSchemaType } from '@/validations';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -50,7 +50,6 @@ import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { generateDiagram } from '@/services/api';
 import { PreviewDiagramModal } from '@/components/modals/PreviewDiagramModal';
 import { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types';
 import { toast } from 'sonner';
@@ -125,20 +124,25 @@ export const PromptingPage = () => {
 
   const onSubmit = async (payload: PromptingSchemaType) => {
     try {
-      const mapper = {
-        type: 'diagramType',
-        content: 'textInput',
-        file: 'fileInput'
-      };
-      const formData = Object.keys(payload).reduce((formData, key) => {
-        const k = key as keyof PromptingSchemaType;
-        if (payload[k] && mapper[k]) {
-          formData.append(mapper[k], payload[k]);
-        }
-        return formData;
-      }, new FormData());
-      await signalRConnection.start();
-      const { diagramJson, mermaidCode } = await generateDiagram(formData);
+      await webSocketService.start();
+
+      // Listen for completion
+      const completionPromise = new Promise<{
+        mermaidCode: string;
+        diagramJson: string;
+      }>((resolve, reject) => {
+        webSocketService.on('Complete', (data) => resolve(data));
+        webSocketService.on('Error', (message) => reject(new Error(message)));
+      });
+
+      // Send generation request via WebSocket
+      webSocketService.send('generate', {
+        diagram_type: payload.type,
+        text_input: payload.content
+      });
+
+      const { diagramJson, mermaidCode } = await completionPromise;
+
       setGeneratedData({ mermaidCode, diagramJson });
       toast.success('Generating Diagram successfully!');
       setIsPreviewOpen(true);
@@ -149,7 +153,7 @@ export const PromptingPage = () => {
       } as CustomError);
       console.error('Error creating project:', error);
     } finally {
-      await signalRConnection.stop();
+      webSocketService.stop();
     }
   };
   const handleOpenPreviewDiagramModal = (state: boolean) => {
@@ -172,12 +176,14 @@ export const PromptingPage = () => {
   };
 
   useEffect(() => {
-    signalRConnection.on('StepGenerated', (message: string) => {
+    webSocketService.on('StepGenerated', (message: string) => {
       setNewEvent(message);
       console.log('Data received: ', message);
     });
     return () => {
-      signalRConnection.off('StepGenerated');
+      webSocketService.off('StepGenerated');
+      webSocketService.off('Complete');
+      webSocketService.off('Error');
     };
   }, []);
 

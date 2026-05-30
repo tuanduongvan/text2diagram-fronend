@@ -2,7 +2,7 @@ import { axiosBackendInstance } from '../config';
 
 export const modifyDiagram = async (payload: FormData) => {
   const data = await axiosBackendInstance.post(
-    '/Generators/regenerate',
+    '/generators/regenerate',
     payload,
     {
       headers: {
