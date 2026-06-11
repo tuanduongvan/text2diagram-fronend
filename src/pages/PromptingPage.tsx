@@ -41,7 +41,8 @@ import {
   Plus,
   Text,
   X,
-  SquarePen
+  SquarePen,
+  Eye
 } from 'lucide-react';
 import { BsStars } from 'react-icons/bs';
 import { useEffect, useState } from 'react';
@@ -96,12 +97,18 @@ export const PromptingPage = () => {
     if (activeTab === 'text') {
       form.setValue('file', undefined);
     }
+    // Clear old data when switching tabs
+    setGeneratedData({ mermaidCode: '', diagramJson: '' });
+    setIsPreviewOpen(false);
   }, [activeTab, form]);
 
   useEffect(() => {
     if (activeTab === 'file') {
       form.setValue('content', '');
     }
+    // Clear old data when switching tabs
+    setGeneratedData({ mermaidCode: '', diagramJson: '' });
+    setIsPreviewOpen(false);
   }, [activeTab, form]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -478,19 +485,38 @@ export const PromptingPage = () => {
             </Label>
           </div>
 
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? (
-              <>
-                <BsStars /> Generating{' '}
-                <LoadingSpinner className="h-4 w-4 ml-2" />
-              </>
-            ) : (
-              <>
-                <BsStars />
-                Generate Diagram
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting}
+              className="w-full sm:w-auto"
+            >
+              {form.formState.isSubmitting ? (
+                <>
+                  <BsStars /> Generating{' '}
+                  <LoadingSpinner className="h-4 w-4 ml-2" />
+                </>
+              ) : (
+                <>
+                  <BsStars />
+                  Generate Diagram
+                </>
+              )}
+            </Button>
+            {generatedData.mermaidCode &&
+              !isPreviewOpen &&
+              !form.formState.isSubmitting && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsPreviewOpen(true)}
+                  className="flex items-center gap-2 w-full sm:w-auto border-primary text-primary hover:bg-primary/10"
+                >
+                  <Eye className="h-4 w-4" />
+                  Reopen Last Preview
+                </Button>
+              )}
+          </div>
         </form>
       </Form>
       {newEvent && (
