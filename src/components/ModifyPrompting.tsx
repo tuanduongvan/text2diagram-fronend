@@ -1,4 +1,4 @@
-import { CustomError, handleError } from '@/utils';
+import { CustomError, handleError, webSocketService } from '@/utils';
 import {
   modifyPromptingSchema,
   ModifyPromptingSchemaType
@@ -52,10 +52,27 @@ export const ModifyPrompting = (props: ModifyPromptingProps) => {
   const onSubmit = async (payload: ModifyPromptingSchemaType) => {
     try {
       onSetProcessing(true);
+
+      await webSocketService.start();
+
+      // Wait for connectionId to be received from the server
+      const connectionId = await new Promise<string>((resolve) => {
+        const existingId = webSocketService.getConnectionId();
+        if (existingId) {
+          resolve(existingId);
+        } else {
+          webSocketService.on('ConnectionIdReceived', (id: string) =>
+            resolve(id)
+          );
+        }
+      });
+
       const formPromptData = new FormData();
       formPromptData.append('feedback', payload.modifyPrompting);
       formPromptData.append('diagramJson', diagramJson);
       formPromptData.append('diagramType', diagramType);
+      formPromptData.append('connectionId', connectionId);
+
       // { mermaidCode, diagramJson }
       const modifyDiagramRes = await modifyDiagram(formPromptData);
       onChangeGeneratedData(modifyDiagramRes);
@@ -87,6 +104,7 @@ export const ModifyPrompting = (props: ModifyPromptingProps) => {
       handleError({ message: String(error), code: 500 } as CustomError);
     } finally {
       onSetProcessing(false);
+      webSocketService.stop();
     }
   };
 

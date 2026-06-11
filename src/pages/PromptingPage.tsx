@@ -53,6 +53,7 @@ import { Label } from '@/components/ui/label';
 import { PreviewDiagramModal } from '@/components/modals/PreviewDiagramModal';
 import { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types';
 import { toast } from 'sonner';
+import { generateDiagram } from '@/services/api';
 
 export type GeneratedDataType = {
   mermaidCode: string;
@@ -126,16 +127,45 @@ export const PromptingPage = () => {
     try {
       await webSocketService.start();
 
-      // Listen for completion
+      // Wait for connectionId to be received from the server
+      const connectionId = await new Promise<string>((resolve) => {
+        const existingId = webSocketService.getConnectionId();
+        if (existingId) {
+          resolve(existingId);
+        } else {
+          webSocketService.on('ConnectionIdReceived', (id: string) =>
+            resolve(id)
+          );
+        }
+      });
+
+      if (activeTab === 'file' && payload.file) {
+        const formData = new FormData();
+        formData.append('type', payload.type);
+        formData.append('file', payload.file);
+        formData.append('connectionId', connectionId);
+
+        const result = await generateDiagram(formData);
+        setGeneratedData(result);
+        toast.success('Generating Diagram successfully!');
+        setIsPreviewOpen(true);
+        return;
+      }
+
+      // Listen for completion (for text prompt)
       const completionPromise = new Promise<{
         mermaidCode: string;
         diagramJson: string;
       }>((resolve, reject) => {
-        webSocketService.on('Complete', (data) => resolve(data));
-        webSocketService.on('Error', (message) => reject(new Error(message)));
+        webSocketService.on('Complete', (data: GeneratedDataType) =>
+          resolve(data)
+        );
+        webSocketService.on('Error', (message: string) =>
+          reject(new Error(message))
+        );
       });
 
-      // Send generation request via WebSocket
+      // Send generation request via WebSocket (for text prompt)
       webSocketService.send('generate', {
         diagram_type: payload.type,
         text_input: payload.content
