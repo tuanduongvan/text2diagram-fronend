@@ -2,6 +2,7 @@ export class WebSocketService {
   private socket: WebSocket | null = null;
   private url: string;
   private listeners: { [key: string]: ((data: any) => void)[] } = {};
+  private connectionId: string | null = null;
 
   constructor(url: string) {
     this.url = url;
@@ -23,17 +24,28 @@ export class WebSocketService {
 
       this.socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        const { type, data, step, message: msgContent } = message;
+        const { type, data, step, message: msgContent, id } = message;
+
+        if (type === 'connection_id') {
+          this.connectionId = id;
+          this.trigger('ConnectionIdReceived', id);
+          return;
+        }
 
         // Map Python's step/progress output to the frontend's expected 'StepGenerated'
-        if (type === 'step' || type === 'progress' || step || (type === 'progress' && msgContent)) {
+        if (
+          type === 'step' ||
+          type === 'progress' ||
+          step ||
+          (type === 'progress' && msgContent)
+        ) {
           this.trigger('StepGenerated', step || msgContent || data);
         }
 
         if (type === 'complete') {
           this.trigger('Complete', data);
         }
-        
+
         if (type === 'error') {
           this.trigger('Error', message.message || message.detail);
         }
@@ -41,6 +53,7 @@ export class WebSocketService {
 
       this.socket.onclose = () => {
         console.log('WebSocket Disconnected');
+        this.connectionId = null;
       };
     });
   }
@@ -68,10 +81,15 @@ export class WebSocketService {
     }
   }
 
+  getConnectionId() {
+    return this.connectionId;
+  }
+
   stop() {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
+      this.connectionId = null;
     }
   }
 }

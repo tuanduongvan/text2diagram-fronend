@@ -56,6 +56,7 @@ import { ModifyPrompting } from '../ModifyPrompting';
 import { GeneratedDataType } from '@/pages';
 import { toast } from 'sonner';
 import { FullPreviewModal } from './FullPreviewModal';
+import { generateDiagram } from '@/services/api';
 
 interface GenerateWithAIModalProps {
   open: boolean;
@@ -159,22 +160,51 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
 
       await webSocketService.start();
 
-      // Listen for completion
-      const completionPromise = new Promise<{
-        mermaidCode: string;
-        diagramJson: string;
-      }>((resolve, reject) => {
-        webSocketService.on('Complete', (data) => resolve(data));
-        webSocketService.on('Error', (message) => reject(new Error(message)));
+      // Wait for connectionId to be received from the server
+      const connectionId = await new Promise<string>((resolve) => {
+        const existingId = webSocketService.getConnectionId();
+        if (existingId) {
+          resolve(existingId);
+        } else {
+          webSocketService.on('ConnectionIdReceived', (id: string) =>
+            resolve(id)
+          );
+        }
       });
 
-      // Send generation request via WebSocket
-      webSocketService.send('generate', {
-        diagram_type: payload.type,
-        text_input: payload.content
-      });
+      let finalResult: GeneratedDataType;
 
-      const { diagramJson, mermaidCode } = await completionPromise;
+      if (activeTab === 'file' && payload.file) {
+        const formData = new FormData();
+        formData.append('type', payload.type);
+        formData.append('file', payload.file);
+        formData.append('connectionId', connectionId);
+
+        const result = await generateDiagram(formData);
+        finalResult = result;
+      } else {
+        // Listen for completion (for text prompt)
+        const completionPromise = new Promise<GeneratedDataType>(
+          (resolve, reject) => {
+            webSocketService.on('Complete', (data: GeneratedDataType) =>
+              resolve(data)
+            );
+            webSocketService.on('Error', (message: string) =>
+              reject(new Error(message))
+            );
+          }
+        );
+
+        // Send generation request via WebSocket (for text prompt)
+        webSocketService.send('generate', {
+          diagram_type: payload.type,
+          text_input: payload.content
+        });
+
+        finalResult = await completionPromise;
+      }
+
+      const { diagramJson, mermaidCode } = finalResult;
 
       if (mermaidCode && diagramJson) {
         setGeneratedData({ diagramJson, mermaidCode });
