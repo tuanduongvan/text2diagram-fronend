@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 import { LoadingSpinner } from '../Spinner';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { handleError, CustomError } from '@/utils';
 import {
   modifyPromptingSchema,
@@ -68,6 +68,7 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
   }, [form.formState.isSubmitting, isParsing]);
   const [isInitializing, setIsInitializing] = useState(false);
   const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fullPreviewCanvasRef = useRef<HTMLDivElement>(null);
 
   const handleOpenFullPreviewDiagramModal = (state: boolean) => {
@@ -129,6 +130,18 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
   const handleInsertToEditor = () => {
     onInsertToEditor(elements);
     onOpenChange(false);
+    // Clear data after inserting
+    handleClear(true);
+  };
+  const handleClear = (force = false) => {
+    if (force || window.confirm('Are you sure you want to clear the generated diagram?')) {
+      onChangeGeneratedData({ mermaidCode: '', diagramJson: '' });
+      setElements([]);
+      if (canvasRef.current) {
+        canvasRef.current.replaceChildren();
+      }
+      setShowClearConfirm(false);
+    }
   };
   const handleCloseDialog = () => {
     onOpenChange(false);
@@ -140,15 +153,18 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
         modifyPrompting: ''
       });
       setIsParsing(false);
-      setElements([]);
       setIsInitializing(false);
-      canvasRef.current = null;
     }
   }, [open, form]);
   useEffect(() => {
     let mounted = true;
 
     async function fn() {
+      if (!open || !mermaidCode) {
+        setIsInitializing(false);
+        return;
+      }
+
       setIsInitializing(true);
       // Use requestAnimationFrame to ensure DOM is ready
       requestAnimationFrame(() => {
@@ -158,38 +174,34 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
           return;
         }
 
-        if (mermaidCode) {
-          parseMermaidToExcalidraw(mermaidCode, { isColorful })
-            .then(({ elements, files }) => {
-              if (!mounted) return;
-              const excalidrawElements = convertToExcalidrawElements(elements);
-              setElements(excalidrawElements);
+        parseMermaidToExcalidraw(mermaidCode, { isColorful })
+          .then(({ elements, files }) => {
+            if (!mounted) return;
+            const excalidrawElements = convertToExcalidrawElements(elements);
+            setElements(excalidrawElements);
 
-              if (refNode) {
-                exportToCanvas({
-                  elements: excalidrawElements,
-                  files,
-                  exportPadding: 10,
-                  maxWidthOrHeight:
-                    Math.max(
-                      refNode.parentElement?.offsetWidth || 0,
-                      refNode.parentElement?.offsetHeight || 0
-                    ) * window.devicePixelRatio
-                }).then((canvas: HTMLCanvasElement) => {
-                  if (!mounted) return;
-                  refNode.replaceChildren(canvas);
-                  setIsInitializing(false);
-                });
-              }
-            })
-            .catch((error) => {
-              if (!mounted) return;
-              handleError({ message: String(error), code: 500 } as CustomError);
-              setIsInitializing(false);
-            });
-        } else {
-          setIsInitializing(false);
-        }
+            if (refNode) {
+              exportToCanvas({
+                elements: excalidrawElements,
+                files,
+                exportPadding: 10,
+                maxWidthOrHeight:
+                  Math.max(
+                    refNode.parentElement?.offsetWidth || 0,
+                    refNode.parentElement?.offsetHeight || 0
+                  ) * window.devicePixelRatio
+              }).then((canvas: HTMLCanvasElement) => {
+                if (!mounted) return;
+                refNode.replaceChildren(canvas);
+                setIsInitializing(false);
+              });
+            }
+          })
+          .catch((error) => {
+            if (!mounted) return;
+            handleError({ message: String(error), code: 500 } as CustomError);
+            setIsInitializing(false);
+          });
       });
     }
 
@@ -198,7 +210,7 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
     return () => {
       mounted = false;
     };
-  }, [mermaidCode, isColorful]);
+  }, [mermaidCode, isColorful, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,7 +310,16 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
             </div>
             {(mermaidCode ||
               (!isLoading && form.formState.isSubmitSuccessful)) && (
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleClear()}
+                  className="flex items-center gap-2"
+                  disabled={isLoading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear
+                </Button>
                 <Button
                   onClick={handleInsertToEditor}
                   className="flex items-center gap-2"

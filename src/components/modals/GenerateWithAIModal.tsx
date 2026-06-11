@@ -24,7 +24,8 @@ import {
   Plus,
   X,
   SquarePen,
-  Text
+  Text,
+  Trash2
 } from 'lucide-react';
 import { DiagramTypeEnum } from '@/interfaces';
 import {
@@ -126,12 +127,20 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
     if (activeTab === 'text') {
       form.setValue('file', undefined);
     }
+    // Clear old data when switching tabs
+    setGeneratedData({ mermaidCode: '', diagramJson: '' });
+    setElements([]);
+    setIsAlreadyGeneratedSuccess(false);
   }, [activeTab, form]);
 
   useEffect(() => {
     if (activeTab === 'file') {
       form.setValue('content', '');
     }
+    // Clear old data when switching tabs
+    setGeneratedData({ mermaidCode: '', diagramJson: '' });
+    setElements([]);
+    setIsAlreadyGeneratedSuccess(false);
   }, [activeTab, form]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -241,9 +250,29 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
   const handleInsertToEditor = () => {
     onInsertToEditor(elements);
     onOpenChange(false);
+    handleClear(true);
   };
   const handleCloseDialog = () => {
     onOpenChange(false);
+  };
+  const handleClear = (force = false) => {
+    if (
+      force ||
+      window.confirm('Are you sure you want to clear the generated diagram?')
+    ) {
+      setGeneratedData({ mermaidCode: '', diagramJson: '' });
+      setElements([]);
+      setIsAlreadyGeneratedSuccess(false);
+      if (canvasRef.current) {
+        canvasRef.current.replaceChildren();
+      }
+      form.reset({
+        type: undefined,
+        content: '',
+        file: undefined
+      });
+      setNewEvent('');
+    }
   };
   const handleChangeGeneratedData = (newValue: GeneratedDataType) => {
     setGeneratedData(newValue);
@@ -258,25 +287,57 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
   // RESET form mỗi khi modal được mở (open = true)
   useEffect(() => {
     if (open) {
-      form.reset({
-        type: undefined,
-        content: '',
-        file: undefined
-      });
       setOpenTypePopover(false);
       setIsParsing(false);
-      setIsAlreadyGeneratedSuccess(false);
-      setIsColorful(false);
-      setGeneratedData({
-        mermaidCode: '',
-        diagramJson: ''
-      });
       setIsModifyingDiagram(false);
-      setElements([]);
-      setNewEvent('');
-      canvasRef.current = null;
     }
-  }, [open, form]);
+  }, [open]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fn() {
+      if (
+        !open ||
+        !isAlreadyGeneratedSuccess ||
+        !generatedData.mermaidCode ||
+        !canvasRef.current
+      )
+        return;
+
+      requestAnimationFrame(async () => {
+        const refNode = canvasRef.current;
+        if (!refNode || !mounted) return;
+
+        try {
+          const { elements: parsedElements, files } =
+            await parseMermaidToExcalidraw(generatedData.mermaidCode, {
+              isColorful
+            });
+          const excalidrawElements =
+            convertToExcalidrawElements(parsedElements);
+          setElements(excalidrawElements);
+
+          const canvas = await exportToCanvas({
+            elements: excalidrawElements,
+            files,
+            exportPadding: 10,
+            maxWidthOrHeight:
+              Math.max(
+                refNode.parentElement?.offsetWidth || 0,
+                refNode.parentElement?.offsetHeight || 0
+              ) * window.devicePixelRatio
+          });
+          if (mounted) refNode.replaceChildren(canvas);
+        } catch (error) {
+          console.error(error);
+        }
+      });
+    }
+    fn();
+    return () => {
+      mounted = false;
+    };
+  }, [open, isAlreadyGeneratedSuccess, generatedData.mermaidCode, isColorful]);
 
   useEffect(() => {
     webSocketService.on('StepGenerated', (message: string) => {
@@ -654,20 +715,27 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
                 )}
               </div>
             </div>
-            {isAlreadyGeneratedSuccess &&
-              !isLoading &&
-              form.formState.isSubmitSuccessful && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleInsertToEditor}
-                    className="flex items-center gap-2"
-                    disabled={isModifyingDiagram}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Insert Diagram
-                  </Button>
-                </div>
-              )}
+            {isAlreadyGeneratedSuccess && !isLoading && (
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleClear()}
+                  className="flex items-center gap-2"
+                  disabled={isModifyingDiagram}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear
+                </Button>
+                <Button
+                  onClick={handleInsertToEditor}
+                  className="flex items-center gap-2"
+                  disabled={isModifyingDiagram}
+                >
+                  <Plus className="h-4 w-4" />
+                  Insert Diagram
+                </Button>
+              </div>
+            )}
             <div className="float-right">
               <p className="dark:text-white text-black italic text-sm">
                 {form.formState.isSubmitting &&
