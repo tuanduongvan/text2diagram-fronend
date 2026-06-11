@@ -61,13 +61,19 @@ export interface Usecase {
 const parsedPlantUML = (raw: any) => {
   const entities: EntityType[] = [],
     relationships: RelationshipType[] = [];
-  if ((raw as Array<any>).length > 0 && raw[0].elements.length > 0) {
-    raw = raw[0].elements;
-    for (const i of raw) {
-      const elements = i?.elements;
-      if (!elements) continue;
-      for (const element of elements) {
-        if (element.comment) continue;
+
+  const collectElements = (elements: any[]) => {
+    for (const element of elements) {
+      if (element.comment) continue;
+
+      // Handle nested elements (like in packages)
+      if (element.elements && Array.isArray(element.elements)) {
+        collectElements(element.elements);
+        continue;
+      }
+
+      // Handle relationships
+      if (element.left && element.right) {
         const [idLeft, idRight] = [nanoid(), nanoid()];
         if (
           !entities.find(
@@ -113,16 +119,37 @@ const parsedPlantUML = (raw: any) => {
           },
           label: element.label
         });
+      } else if (element.name && element.type) {
+        // Handle standalone entities if any
+        if (
+          !entities.find(
+            (entity) =>
+              entity.entity === element.name && entity.type === element.type
+          )
+        ) {
+          entities.push({
+            entity: element.name,
+            id: nanoid(),
+            type: element.type
+          });
+        }
       }
     }
+  };
+
+  if (Array.isArray(raw) && raw.length > 0 && raw[0].elements) {
+    collectElements(raw[0].elements);
   }
+
   const { actors, usecases } = entities.reduce(
     (acc: { actors: EntityType[]; usecases: EntityType[] }, entity) => {
       switch (entity.type) {
         case 'Unknown':
+        case 'Actor':
           acc.actors.push(entity);
           break;
         case 'UseCase':
+        case 'usecase':
           acc.usecases.push(entity);
           break;
         default:
@@ -142,6 +169,8 @@ const getStrokeStyle = (type: string) => {
       lineType = 'solid';
       break;
     case ARROW_BODY.DASH:
+    case '.':
+    case '..':
       lineType = 'dashed';
       break;
     default:
@@ -155,9 +184,13 @@ const getArrowhead = (type: string) => {
   switch (type) {
     case ARROW_HEAD.ARROW_LEFT:
     case ARROW_HEAD.ARROW_RIGHT:
+    case '<':
+    case '>':
       arrowhead = 'arrow';
       break;
     case ARROW_HEAD.INHERITANCE:
+    case '|>':
+    case '<|':
       arrowhead = 'triangle_outline';
       break;
     case ARROW_HEAD.NONE:
@@ -175,7 +208,7 @@ const extractPoints = (dAttr: string) => {
   const lines: Array<Array<number>> = [];
 
   paths.forEach((path) => {
-    // Extract coordinates from 'M' and 'L' commands
+    // Extract coordinates from 'M', 'L', and other commands
     const coords =
       path
         .match(/[\d.]+,[\d.]+/g)
@@ -200,47 +233,53 @@ const createActorSymbol = (
   const lines: Line[] = [];
   const nodes: Container[] = [];
 
-  // Ellipse
-  const actorEllipse = createContainerSkeletonFromSVG(
-    element.querySelector('ellipse') as unknown as SVGSVGElement,
-    'ellipse',
-    { id: actorId, groupId }
-  );
-  actorEllipse.x += transformX;
-  actorEllipse.y += transformY;
-  nodes.push(actorEllipse);
-  // Path
-  const pathNode = element.querySelector('path');
-  if (!pathNode) {
-    return { lines, nodes };
-  }
-  const dAttr = pathNode.getAttribute('d');
-  if (!dAttr) {
-    return { lines, nodes };
-  }
-  const points = extractPoints(dAttr);
-  points.forEach((point) => {
-    const lineNode = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'line'
+  // Ellipse (Head)
+  const ellipseEl = element.querySelector('ellipse');
+  if (ellipseEl) {
+    const actorEllipse = createContainerSkeletonFromSVG(
+      ellipseEl as unknown as SVGSVGElement,
+      'ellipse',
+      { id: actorId, groupId }
     );
-    lineNode.setAttribute('x1', point[0].toString());
-    lineNode.setAttribute('y1', point[1].toString());
-    lineNode.setAttribute('x2', point[2].toString());
-    lineNode.setAttribute('y2', point[3].toString());
-    const line = createLineSkeletonFromSVG(
-      lineNode,
-      point[0],
-      point[1],
-      point[2],
-      point[3],
-      {
-        groupId,
-        id: nanoid()
-      }
-    );
-    line.metadata = { dAttr };
-    lines.push(line);
+    actorEllipse.x += transformX;
+    actorEllipse.y += transformY;
+    nodes.push(actorEllipse);
+  }
+
+  // Path (Body)
+  const paths = element.querySelectorAll('path');
+  paths.forEach((pathNode) => {
+    const dAttr = pathNode.getAttribute('d');
+    if (!dAttr) return;
+
+    const points = extractPoints(dAttr);
+    points.forEach((point) => {
+      const lineNode = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line'
+      );
+      lineNode.setAttribute('x1', point[0].toString());
+      lineNode.setAttribute('y1', point[1].toString());
+      lineNode.setAttribute('x2', point[2].toString());
+      lineNode.setAttribute('y2', point[3].toString());
+      const line = createLineSkeletonFromSVG(
+        lineNode,
+        point[0],
+        point[1],
+        point[2],
+        point[3],
+        {
+          groupId,
+          id: nanoid()
+        }
+      );
+      line.metadata = { dAttr };
+      line.startX += transformX;
+      line.startY += transformY;
+      line.endX += transformX;
+      line.endY += transformY;
+      lines.push(line);
+    });
   });
 
   return { lines, nodes };
@@ -249,20 +288,25 @@ const createActorSymbol = (
 const parseCluster = (containerEl: Element) => {
   const nodes: Array<Container> = [];
   const text: Array<Text> = [];
-  const clusters = containerEl.querySelectorAll(`[id^="cluster_`);
+  // Use class "cluster" which is standard in PlantUML SVGs
+  const clusters = containerEl.querySelectorAll('.cluster');
 
   if (clusters.length) {
     for (const cluster of clusters) {
       const clusterId = nanoid();
       const { transformX, transformY } = getTransformAttr(cluster);
+      const rectEl = cluster.querySelector('rect, path'); // Clusters can be path-based too
+      if (!rectEl) continue;
+
       const clusterNode = createContainerSkeletonFromSVG(
-        cluster as SVGSVGElement,
+        rectEl as unknown as SVGSVGElement,
         'rectangle',
         { id: nanoid(), groupId: clusterId }
       );
       clusterNode.x += transformX;
       clusterNode.y += transformY;
       nodes.push(clusterNode);
+
       const clusterTitleNode = cluster.querySelector('text');
       if (clusterTitleNode) {
         const title = clusterTitleNode.textContent || '';
@@ -287,6 +331,24 @@ const parseCluster = (containerEl: Element) => {
   return { nodes, text };
 };
 
+const findEntityNode = (containerEl: Element, entityName: string) => {
+  // Try finding by data-qualified-name (ends with the entity name)
+  let node = containerEl.querySelector(
+    `.entity[data-qualified-name$=".${entityName}"], .entity[data-qualified-name="${entityName}"]`
+  );
+
+  // Fallback: search through all entities and check text content
+  if (!node) {
+    const entities = Array.from(containerEl.querySelectorAll('.entity'));
+    node = entities.find((el) => {
+      const text = el.querySelector('text')?.textContent;
+      return text === entityName;
+    }) || null;
+  }
+
+  return node;
+};
+
 const parseActor = (
   actors: EntityType[],
   containerEl: Element,
@@ -297,11 +359,11 @@ const parseActor = (
   const lines: Line[] = [];
 
   actors.forEach((actor) => {
-    const actorNode = containerEl.querySelector(
-      `[id="entity_${actor.entity}"]`
-    );
+    const actorNode = findEntityNode(containerEl, actor.entity);
+
     if (!actorNode) {
-      throw Error(`DOM Node with id ${actor.entity} not found`);
+      console.warn(`DOM Node with id/name ${actor.entity} not found`);
+      return; // Skip if not found instead of throwing, to be more resilient
     }
     const groupId = nanoid();
     const { transformX, transformY } = getTransformAttr(actorNode);
@@ -318,9 +380,9 @@ const parseActor = (
     // Actor name
     const actorLabelNode = actorNode.querySelector('text');
     if (!actorLabelNode) {
-      throw Error('Label not found');
+      return;
     }
-    const actorLabel = reversedActor[actorLabelNode.textContent!] || '';
+    const actorLabel = reversedActor[actorLabelNode.textContent!] || actorLabelNode.textContent || '';
     const boundingBox = (actorLabelNode as SVGTextElement).getBBox();
 
     const textElement = createTextSkeleton(
@@ -351,29 +413,32 @@ const parseUsecase = (
   const text: Text[] = [];
 
   usecases.forEach((usecase) => {
-    const usecaseNode = containerEl.querySelector(
-      `[id="entity_${usecase.entity}"]`
-    );
+    const usecaseNode = findEntityNode(containerEl, usecase.entity);
+
     if (!usecaseNode) {
-      throw Error(`DOM Node with id ${usecase.entity} not found`);
+      console.warn(`DOM Node with id/name ${usecase.entity} not found`);
+      return;
     }
     const groupId = nanoid();
     const { transformX, transformY } = getTransformAttr(usecaseNode);
     // Ellipse
-    const usecaseEllipse = createContainerSkeletonFromSVG(
-      usecaseNode as SVGSVGElement,
-      'ellipse',
-      { id: usecase.id, groupId }
-    );
-    usecaseEllipse.x += transformX;
-    usecaseEllipse.y += transformY;
-    nodes.push(usecaseEllipse);
+    const ellipseEl = usecaseNode.querySelector('ellipse');
+    if (ellipseEl) {
+      const usecaseEllipse = createContainerSkeletonFromSVG(
+        ellipseEl as unknown as SVGSVGElement,
+        'ellipse',
+        { id: usecase.id, groupId }
+      );
+      usecaseEllipse.x += transformX;
+      usecaseEllipse.y += transformY;
+      nodes.push(usecaseEllipse);
+    }
     // Text
     const usecaseLabelNode = usecaseNode.querySelector('text');
     if (!usecaseLabelNode) {
-      throw Error('Label not found');
+      return;
     }
-    const usecaseLabel = reversedUsecase[usecaseLabelNode.textContent!] || '';
+    const usecaseLabel = reversedUsecase[usecaseLabelNode.textContent!] || usecaseLabelNode.textContent || '';
     const boundingBox = (usecaseLabelNode as SVGTextElement).getBBox();
 
     const textElement = createTextSkeleton(
@@ -399,16 +464,24 @@ const parseRelationships = (
   containerEl: Element
 ) => {
   const arrows: Array<Arrow> = [];
-  const relationshipLinks = containerEl.querySelectorAll(`[id^="link_"]`);
+  // Use class "link" which is standard in PlantUML SVGs
+  const relationshipLinks = containerEl.querySelectorAll('.link');
+
   relationships.forEach((relationship, index) => {
+    if (!relationshipLinks[index]) return;
+
     const { leftArrowHead, leftArrowBody, rightArrowBody, rightArrowHead } =
       relationship.arrow;
     const arrowBody = `${leftArrowBody}${rightArrowBody}`;
     const startArrowhead = getArrowhead(leftArrowHead);
     const endArrowhead = getArrowhead(rightArrowHead);
     const strokeStyle = getStrokeStyle(arrowBody);
+
+    const pathEl = relationshipLinks[index].querySelector('path');
+    if (!pathEl) return;
+
     const relationshipPositionData = computeEdgePositionsMC(
-      relationshipLinks[index].firstChild as SVGPathElement
+      pathEl as SVGPathElement
     );
     const arrowSkeletion = createArrowSkeletion(
       relationshipPositionData.startX,
