@@ -10,13 +10,14 @@ const sections = [
         Welcome to the{' '}
         <strong>"AI-Powered Software Technical Diagram Generator"</strong>{' '}
         application (the <strong>"App"</strong>). This App is developed by a
-        team of students from the University of Science, Faculty of Information
-        Technology, under the guidance of MSc. Ngo Ngoc Dang Khoa. We are
-        committed to safeguarding your privacy and ensuring that your personal
-        information is processed securely, ethically, and transparently. This
-        Privacy Policy explains in detail how we collect, use, share, and
-        protect your information when you interact with our App. By using the
-        App, you agree to the terms outlined in this policy.
+        student from the <strong>University of Science and Technology – The University of Danang (DUT)</strong>,
+        Faculty of Information Technology, under the guidance of
+        <strong> MSc. Nguyen The Xuan Ly</strong>. We are committed to safeguarding
+        your privacy and ensuring that your personal information is processed
+        securely, ethically, and transparently. This Privacy Policy explains in
+        detail how we collect, use, share, and protect your information when you
+        interact with our App. By using the App, you agree to the terms outlined in
+        this policy.
       </p>
     )
   },
@@ -235,21 +236,23 @@ const sections = [
         <br />
         <strong>Email:</strong>{' '}
         <a
-          href="mailto:21120426@student.hcmus.edu.vn"
-          className="text-blue-6te00 dark:text-blue-400"
+          href="mailto:102220302@sv1.dut.udn.vn"
+          className="text-blue-600 dark:text-blue-400"
         >
-          21120426@student.hcmus.edu.vn
+          102220302@sv1.dut.udn.vn
         </a>
         <br />
         <strong>Mailing Address:</strong>
         <br />
-        Faculty of Information Technology,n
+        Faculty of Information Technology,
         <br />
-        University of Science,
+        The University of Danang - University of Science and Technology (DUT),
         <br />
-        227 Nguyen Van Cu Street, District 5,
+        54 Nguyen Luong Bang Street,
         <br />
-        Ho Chi Minh City, Vietnam
+        Hoa Khanh Ward, Lien Chieu District,
+        <br />
+        Da Nang City, Vietnam
       </p>
     )
   }

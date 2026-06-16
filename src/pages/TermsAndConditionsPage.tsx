@@ -9,13 +9,14 @@ const termsSections = [
       <p>
         Welcome to the{' '}
         <strong>AI-Powered Software Technical Diagram Generator</strong>{' '}
-        application (the <strong>"App"</strong>). The App is developed by a team
-        of students from the University of Science, Faculty of Information
-        Technology, under the guidance of MSc. Ngo Ngoc Dang Khoa. By accessing
-        or using the App, you acknowledge that you have read, understood, and
-        agree to be legally bound by these Terms and Conditions (the{' '}
-        <strong>"Terms"</strong>), along with our Privacy Policy. If you do not
-        agree to these Terms, you are expressly prohibited from using the App.
+        application (the <strong>"App"</strong>). The App is developed by
+        a student from the <strong>The University of Danang - University of Science and Technology (DUT)</strong>,
+        Faculty of Information Technology, under the guidance of
+        <strong> MSc. Nguyen The Xuan Ly</strong>. By accessing or using the App,
+        you acknowledge that you have read, understood, and agree to be legally bound
+        by these Terms and Conditions (the <strong>"Terms"</strong>), along with our
+        Privacy Policy. If you do not agree to these Terms, you are expressly
+        prohibited from using the App.
       </p>
     )
   },
@@ -304,29 +305,26 @@ const termsSections = [
     content: (
       <div className="ml-6 mb-4 space-y-2">
         <p>
-          <strong>Email:</strong>{' '}
-          <a
-            href="mailto:21120426@student.hcmus.edu.vn"
-            className="text-blue-600 dark:text-blue-400"
-          >
-            21120426@student.hcmus.edu.vn
-          </a>
-        </p>
-        <p>
-          <strong>Mailing Address:</strong>
-        </p>
-        <p className="ml-4">
-          Faculty of Information Technology,
-          <br />
-          University of Science,
-          <br />
-          227 Nguyen Van Cu Street, District 5,
-          <br />
-          Ho Chi Minh City, Vietnam
-        </p>
-        <p>
-          <strong>Support Hours:</strong> Monday-Friday, 9:00 AM - 5:00 PM (ICT)
-        </p>
+        <strong>Email:</strong>{' '}
+        <a
+          href="mailto:102220302@sv1.dut.udn.vn"
+          className="text-blue-600 dark:text-blue-400"
+        >
+          102220302@sv1.dut.udn.vn
+        </a>
+        <br />
+        <strong>Mailing Address:</strong>
+        <br />
+        Faculty of Information Technology,
+        <br />
+        The University of Danang - University of Science and Technology (DUT),
+        <br />
+        54 Nguyen Luong Bang Street,
+        <br />
+        Hoa Khanh Ward, Lien Chieu District,
+        <br />
+        Da Nang City, Vietnam
+      </p>
       </div>
     )
   }
