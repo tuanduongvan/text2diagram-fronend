@@ -68,7 +68,6 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
   }, [form.formState.isSubmitting, isParsing]);
   const [isInitializing, setIsInitializing] = useState(false);
   const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fullPreviewCanvasRef = useRef<HTMLDivElement>(null);
 
   const handleOpenFullPreviewDiagramModal = (state: boolean) => {
