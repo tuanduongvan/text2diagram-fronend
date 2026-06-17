@@ -1,7 +1,9 @@
 # Stage 1: Build
 FROM node:20-alpine AS build
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apk add --no-cache git openssh
+# Force git to use HTTPS instead of SSH for github.com
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
