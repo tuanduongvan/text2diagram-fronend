@@ -140,7 +140,6 @@ export const PreviewDiagramModal = (props: PreviewDiagramModalProps) => {
       if (canvasRef.current) {
         canvasRef.current.replaceChildren();
       }
-      setShowClearConfirm(false);
     }
   };
   const handleCloseDialog = () => {
