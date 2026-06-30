@@ -240,8 +240,16 @@ export const GenerateWithAIModal = (props: GenerateWithAIModalProps) => {
         }
       }
       toast.success('Generating Diagram successfully!');
-    } catch (error) {
-      handleError({ message: String(error), code: 500 } as CustomError);
+    } catch (error: any) {
+      const serverMessage =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Failed to generate diagram. Please try again.';
+      const serverCode = error?.response?.status || 500;
+      handleError({
+        message: serverMessage,
+        code: serverCode
+      } as CustomError);
     } finally {
       setIsParsing(false);
       webSocketService.stop();
