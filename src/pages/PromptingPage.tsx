@@ -183,10 +183,15 @@ export const PromptingPage = () => {
       setGeneratedData({ mermaidCode, diagramJson });
       toast.success('Generating Diagram successfully!');
       setIsPreviewOpen(true);
-    } catch (error) {
+    } catch (error: any) {
+      const serverMessage =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Failed to generate diagram. Please try again.';
+      const serverCode = error?.response?.status || 500;
       handleError({
-        message: 'Failed to generate diagram. Please try again.',
-        code: 500
+        message: serverMessage,
+        code: serverCode
       } as CustomError);
       console.error('Error creating project:', error);
     } finally {
